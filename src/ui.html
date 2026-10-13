@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Private Muse</title>
+<style>
+  :root{
+    --bg:#0e1013; --panel:#15181e; --panel2:#1b1f27; --line:#262c37;
+    --text:#e8eaf0; --dim:#9aa3b2; --accent:#e0a458; --accent2:#7ee0a3;
+    --user:#1f2a3d; --err:#ff7a7a;
+  }
+  *{box-sizing:border-box}
+  html,body{height:100%}
+  body{margin:0;background:var(--bg);color:var(--text);
+    font-family:"Segoe UI",system-ui,-apple-system,sans-serif;display:flex;flex-direction:column}
+  header{display:flex;align-items:center;gap:12px;padding:10px 18px;background:var(--panel);
+    border-bottom:1px solid var(--line);flex:0 0 auto}
+  .logo{width:30px;height:30px;border-radius:8px;background:#22262f;border:1px solid var(--line);
+    display:flex;align-items:center;justify-content:center;font-weight:700;color:var(--accent);font-size:15px}
+  header h1{font-size:16px;margin:0;font-weight:600}
+  header .sub{color:var(--dim);font-size:12px}
+  .pill{margin-left:auto;font-size:12px;padding:4px 10px;border-radius:999px;border:1px solid var(--line);color:var(--dim)}
+  .pill.ready{color:#0c0f0c;background:var(--accent2);border-color:var(--accent2);font-weight:600}
+  .pill.busy{color:var(--accent);border-color:var(--accent)}
+  .pill.err{color:var(--err);border-color:var(--err)}
+  button{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;
+    padding:7px 13px;cursor:pointer;font-size:13px}
+  button:hover{border-color:var(--accent)}
+  button.primary{background:var(--accent);color:#171207;border-color:var(--accent);font-weight:600}
+  button:disabled{opacity:.45;cursor:default}
+  main{flex:1 1 auto;overflow-y:auto;padding:22px 4vw}
+  #messages{max-width:1180px;margin:0 auto;display:flex;flex-direction:column;gap:14px}
+  .msg{padding:13px 16px;border-radius:12px;line-height:1.55;font-size:15px;white-space:pre-wrap;word-wrap:break-word}
+  .msg.user{background:var(--user);align-self:flex-end;max-width:85%}
+  .msg.assistant{background:var(--panel);border:1px solid var(--line);align-self:stretch}
+  .msg .role{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--dim);margin-bottom:6px}
+  .msg pre{background:#0a0c0f;border:1px solid var(--line);border-radius:9px;padding:12px 14px;
+    overflow-x:auto;white-space:pre;margin:10px 0;position:relative}
+  .msg code{font-family:Consolas,"Cascadia Code",monospace;font-size:13.5px}
+  .msg p.codewrap{margin:0}
+  .copybtn{position:absolute;top:7px;right:7px;font-size:11px;padding:3px 9px;border-radius:6px}
+  .tok-k{color:#c792ea}.tok-s{color:#9ece6a}.tok-c{color:#5c6773;font-style:italic}.tok-n{color:#ff9e64}
+  footer{flex:0 0 auto;background:var(--panel);border-top:1px solid var(--line);padding:12px 4vw}
+  #composer{max-width:1180px;margin:0 auto;display:flex;gap:10px;align-items:flex-end}
+  #input{flex:1;background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:10px;
+    padding:11px 13px;font-size:15px;resize:none;max-height:180px;font-family:inherit}
+  #input:focus{outline:none;border-color:var(--accent)}
+  .hint{max-width:1180px;margin:7px auto 0;color:var(--dim);font-size:11.5px}
+  /* setup / download view */
+  #setup{max-width:640px;margin:9vh auto 0;background:var(--panel);border:1px solid var(--line);
+    border-radius:14px;padding:30px 34px;text-align:center}
+  #setup h2{margin:0 0 6px;font-size:21px}
+  #setup p{color:var(--dim);margin:6px 0 16px;line-height:1.5}
+  .barwrap{background:#0a0c0f;border:1px solid var(--line);border-radius:999px;height:20px;overflow:hidden;margin:14px 0 8px}
+  #bar{height:100%;width:0%;background:linear-gradient(90deg,#b57e35,var(--accent));transition:width .3s}
+  #dlstats{color:var(--dim);font-size:13px;min-height:18px}
+  .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line);border-top-color:var(--accent);
+    border-radius:50%;animation:sp 1s linear infinite;vertical-align:-2px;margin-right:8px}
+  @keyframes sp{to{transform:rotate(360deg)}}
+  /* settings modal */
+  #modal{position:fixed;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;z-index:10}
+  #modal.open{display:flex}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:24px 26px;width:min(560px,92vw)}
+  .card h3{margin:0 0 14px}
+  .card label{display:block;font-size:13px;color:var(--dim);margin:14px 0 5px}
+  .card select{width:100%;background:var(--panel2);color:var(--text);border:1px solid var(--line);
+    border-radius:8px;padding:9px;font-size:14px}
+  .card .note{font-size:12px;color:var(--dim);line-height:1.5;margin-top:6px}
+  .card .row{display:flex;gap:10px;justify-content:flex-end;margin-top:22px}
+  .hidden{display:none!important}
+</style>
+</head>
+<body>
+<header>
+  <div class="logo">&lt;/&gt;</div>
+  <div>
+    <h1>Private Muse</h1>
+    <div class="sub" id="modelInfo">local · offline · no account</div>
+  </div>
+  <span class="pill" id="statusPill">starting…</span>
+  <button id="newChatBtn">New chat</button>
+  <button id="settingsBtn">Settings</button>
+</header>
+
+<div id="updBanner" class="hidden" style="background:#2a2116;border-bottom:1px solid var(--accent);padding:9px 18px;font-size:13.5px;display:flex;gap:12px;align-items:center">
+  <span id="updText"></span>
+  <button class="primary" id="updBtn" style="padding:5px 12px">Update now</button>
+  <button id="updLater" style="padding:5px 12px">Later</button>
+</div>
+
+<main id="mainScroll">
+  <div id="setup" class="hidden">
+    <h2 id="setupTitle">Setting up your private AI</h2>
+    <p id="setupText">First launch downloads the AI model once (about 4.7&nbsp;GB). After that, everything runs 100% offline on this computer — nothing you type ever leaves it.</p>
+    <div class="barwrap"><div id="bar"></div></div>
+    <div id="dlstats">Preparing…</div>
+    <p style="margin-top:18px"><button class="primary" id="setupBtn">Download model</button></p>
+  </div>
+  <div id="messages"></div>
+</main>
+
+<footer id="composerBar" class="hidden">
+  <div id="composer">
+    <textarea id="input" rows="1" placeholder="Ask anything… (Enter to send, Shift+Enter for a new line)"></textarea>
+    <button class="primary" id="sendBtn">Send</button>
+    <button id="stopBtn" class="hidden">Stop</button>
+  </div>
+  <div class="hint">Runs entirely on this PC. Speed and memory use depend on your settings.</div>
+</footer>
+
+<div id="modal">
+  <div class="card">
+    <h3>Settings</h3>
+    <label>Model</label>
+    <select id="selModel"></select>
+    <div class="note">7B is the fast everyday pick for a 16&nbsp;GB laptop. 14B is smarter but noticeably slower, and can't use the largest context on 16&nbsp;GB RAM.</div>
+    <label>Context length (how much it can remember in one chat)</label>
+    <select id="selCtx">
+      <option value="8192">8k — light</option>
+      <option value="16384">16k</option>
+      <option value="32768">32k — default</option>
+      <option value="65536">64k</option>
+      <option value="131072">128k — max (uses several GB of extra RAM, slower)</option>
+    </select>
+    <div class="note">Larger context = longer memory per chat, but more RAM and slower replies. Changing model or context restarts the engine (and downloads the model first if it isn't here yet).</div>
+    <label>App version</label>
+    <div style="display:flex;gap:10px;align-items:center">
+      <span id="verLabel" style="font-size:14px">—</span>
+      <button id="checkUpdBtn">Check for updates</button>
+      <span id="updStatus" style="font-size:12.5px;color:var(--dim)"></span>
+    </div>
+    <div class="note">Updates replace this app in place — same file, same place, your model and settings are kept. The check needs internet; the app itself works fully offline.</div>
+    <div class="row">
+      <button id="quitBtn" style="margin-right:auto;color:var(--err)">Quit app</button>
+      <button id="cancelBtn">Cancel</button>
+      <button class="primary" id="applyBtn">Apply &amp; restart</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+let state = {phase:"", downloaded:false, ctx:32768, modelId:"7b", models:[], backend:""};
+let messages = [];           // {role, content}
+let aborter = null;
+let kicked = false;          // download/start already triggered for this phase
+let updDismissed = false;
+
+const SYSTEM = {role:"system", content:"You are Private Muse, a helpful AI assistant running fully offline on the user's own computer. You are especially strong at programming: give correct, complete, working code with brief explanations. Answer directly and helpfully."};
+
+function fmtGB(b){ return (b/1e9).toFixed(2); }
+
+async function poll(){
+  try{
+    const r = await fetch("/api/status"); const s = await r.json();
+    state = s; renderStatus(s); renderUpdate(s);
+    if(s.phase === "ready"){ kicked = false; }
+    if(s.phase === "error"){ kicked = false; }
+    if(!s.downloaded && s.phase === "need-download" && !kicked){
+      kicked = true; fetch("/api/download",{method:"POST"});
+    }
+    if(s.downloaded && s.phase === "downloaded" && !kicked){
+      kicked = true; fetch("/api/start",{method:"POST"});
+    }
+  }catch(e){ /* server restarting (update) or not up yet — keep polling */ }
+  setTimeout(poll, 900);
+}
+
+function renderUpdate(s){
+  const banner = $("updBanner");
+  if(s.updateBusy){
+    banner.classList.remove("hidden");
+    $("updText").textContent = "Updating to v" + s.updateVersion + " — downloading " + (s.updatePct||0).toFixed(0) + "%… the app will restart itself when done.";
+    $("updBtn").classList.add("hidden"); $("updLater").classList.add("hidden");
+    return;
+  }
+  if(s.updateErr && s.updateErr.indexOf("check failed") !== 0){
+    banner.classList.remove("hidden");
+    $("updText").textContent = "Update problem: " + s.updateErr;
+    $("updBtn").classList.add("hidden"); $("updLater").classList.remove("hidden");
+    return;
+  }
+  if(s.updateAvailable && !updDismissed){
+    banner.classList.remove("hidden");
+    $("updText").textContent = "Version " + s.updateVersion + " is available" + (s.updateNotes ? " — " + s.updateNotes : "");
+    $("updBtn").classList.remove("hidden"); $("updLater").classList.remove("hidden");
+  } else {
+    banner.classList.add("hidden");
+  }
+  $("verLabel").textContent = "v" + (s.appVersion || "?");
+  const us = $("updStatus");
+  if(us && $("modal").classList.contains("open")){
+    if(s.updateBusy) us.textContent = "Updating… " + (s.updatePct||0).toFixed(0) + "%";
+    else if(s.updateAvailable) us.textContent = "v" + s.updateVersion + " available — close settings and use the banner, or click Update now there.";
+    else if(s.updateChecked) us.textContent = "You're on the latest version.";
+    else if(s.updateErr) us.textContent = "Couldn't check (offline?)";
+  }
+}
+
+$("updBtn").onclick = () => { fetch("/api/update",{method:"POST"}); };
+$("updLater").onclick = () => { updDismissed = true; $("updBanner").classList.add("hidden"); };
+$("checkUpdBtn").onclick = async () => {
+  $("updStatus").textContent = "Checking…";
+  await fetch("/api/check-update",{method:"POST"});
+};
+
+function renderStatus(s){
+  const pill = $("statusPill");
+  $("modelInfo").textContent = (s.modelLabel||"") + (s.backend ? " · " + s.backend : "") + " · ctx " + Math.round((s.ctx||0)/1024) + "k";
+  const setup = $("setup"), msgs = $("messages"), comp = $("composerBar");
+  if(s.phase === "ready"){
+    pill.textContent = "● Ready — offline"; pill.className = "pill ready";
+    setup.classList.add("hidden"); comp.classList.remove("hidden"); msgs.classList.remove("hidden");
+    return;
+  }
+  comp.classList.add("hidden");
+  if(s.phase === "error"){
+    pill.textContent = "Error"; pill.className = "pill err";
+    setup.classList.remove("hidden");
+    $("setupTitle").textContent = "Something went wrong";
+    $("setupText").textContent = s.error || "Unknown error";
+    $("dlstats").textContent = "";
+    $("setupBtn").textContent = "Try again"; $("setupBtn").disabled = false;
+    return;
+  }
+  setup.classList.remove("hidden"); msgs.classList.add("hidden");
+  if(s.phase === "downloading" || (!s.downloaded && s.phase !== "starting")){
+    pill.textContent = "Downloading model…"; pill.className = "pill busy";
+    $("setupTitle").textContent = "Downloading your AI model";
+    $("setupBtn").disabled = true; $("setupBtn").textContent = "Downloading…";
+    $("bar").style.width = (s.dlPct||0).toFixed(1) + "%";
+    $("dlstats").textContent = fmtGB(s.dlDone||0) + " GB of " + fmtGB(s.dlTotal||s.modelSizeGB*1e9) +
+      " GB · " + (s.dlPct||0).toFixed(1) + "%" +
+      (s.dlSpeedMBs > 0.05 ? " · " + s.dlSpeedMBs.toFixed(1) + " MB/s" : "");
+  } else {
+    pill.textContent = "Loading model…"; pill.className = "pill busy";
+    $("setupTitle").innerHTML = '<span class="spin"></span>Loading the model into memory';
+    $("setupText").textContent = "This takes a few seconds. The chat opens as soon as it's ready.";
+    $("dlstats").textContent = "";
+    $("setupBtn").disabled = true; $("setupBtn").textContent = "Loading…";
+  }
+}
+
+$("setupBtn").onclick = () => {
+  if(!state.downloaded) fetch("/api/download",{method:"POST"});
+  else fetch("/api/start",{method:"POST"});
+};
+
+// ---------------- chat rendering ----------------
+function esc(t){ return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;"); }
+
+function highlight(code){
+  let t = esc(code);
+  t = t.replace(/(\/\/[^\n]*|#[^\n]*|\/\*[\s\S]*?\*\/)/g, "\u0001$1\u0002");
+  t = t.replace(/(&quot;[^&]*?&quot;|&#34;[^&]*?&#34;|"[^"\n]*"|'[^'\n]*'|`[^`\n]*`)/g, "\u0003$1\u0004");
+  t = t.replace(/\b(def|return|function|const|let|var|if|else|elif|for|while|class|import|from|as|public|private|static|void|int|float|double|string|bool|new|try|catch|finally|throw|async|await|yield|lambda|None|True|False|true|false|null|undefined|this|self|in|of|switch|case|break|continue|do|package|func|go|defer|struct|interface|type|vararg|val|fun|when|object|enum|namespace|using|echo|print)\b/g, '<span class="tok-k">$1</span>');
+  t = t.replace(/\b(\d+(?:\.\d+)?)\b/g, '<span class="tok-n">$1</span>');
+  t = t.replace(/\u0001([\s\S]*?)\u0002/g, '<span class="tok-c">$1</span>');
+  t = t.replace(/\u0003([\s\S]*?)\u0004/g, '<span class="tok-s">$1</span>');
+  return t;
+}
+
+function renderContent(text){
+  const parts = text.split(/```(\w*)\n?/);
+  let html = "";
+  for(let i=0;i<parts.length;i++){
+    if(i % 3 === 2){
+      html += '<pre><button class="copybtn">Copy</button><code>' + highlight(parts[i].replace(/\n$/,"")) + '</code></pre>';
+    } else if(i % 3 === 0){
+      let seg = esc(parts[i]);
+      seg = seg.replace(/`([^`\n]+)`/g, '<code style="background:#0a0c0f;padding:1px 5px;border-radius:5px">$1</code>');
+      html += seg;
+    }
+  }
+  return html;
+}
+
+function addMsg(role, content){
+  const div = document.createElement("div");
+  div.className = "msg " + role;
+  div.innerHTML = '<div class="role">' + (role === "user" ? "You" : "Private Muse") + '</div><div class="body"></div>';
+  div.querySelector(".body").innerHTML = renderContent(content);
+  $("messages").appendChild(div);
+  bindCopy(div);
+  scrollDown();
+  return div;
+}
+function bindCopy(scope){
+  scope.querySelectorAll(".copybtn").forEach(b=>{
+    b.onclick = () => {
+      const code = b.parentElement.querySelector("code").innerText;
+      navigator.clipboard.writeText(code).then(()=>{ b.textContent="Copied"; setTimeout(()=>b.textContent="Copy",1200); });
+    };
+  });
+}
+function scrollDown(){ const m = $("mainScroll"); m.scrollTop = m.scrollHeight; }
+
+async function send(){
+  const ta = $("input"); const text = ta.value.trim();
+  if(!text || aborter) return;
+  ta.value = ""; ta.style.height = "auto";
+  messages.push({role:"user", content:text});
+  addMsg("user", text);
+  const div = addMsg("assistant", "");
+  const bodyEl = div.querySelector(".body");
+  let answer = "";
+  aborter = new AbortController();
+  $("sendBtn").classList.add("hidden"); $("stopBtn").classList.remove("hidden");
+  try{
+    const resp = await fetch("/api/chat", {
+      method:"POST", headers:{"Content-Type":"application/json"},
+      body: JSON.stringify({messages:[SYSTEM, ...messages]}),
+      signal: aborter.signal
+    });
+    const reader = resp.body.getReader();
+    const dec = new TextDecoder();
+    let buf = "";
+    while(true){
+      const {done, value} = await reader.read();
+      if(done) break;
+      buf += dec.decode(value, {stream:true});
+      let idx;
+      while((idx = buf.indexOf("\n")) >= 0){
+        const line = buf.slice(0, idx).trim(); buf = buf.slice(idx+1);
+        if(!line.startsWith("data:")) continue;
+        const data = line.slice(5).trim();
+        if(data === "[DONE]") continue;
+        try{
+          const j = JSON.parse(data);
+          const delta = j.choices && j.choices[0] && j.choices[0].delta && j.choices[0].delta.content;
+          if(delta){ answer += delta; bodyEl.innerHTML = renderContent(answer); bindCopy(div); scrollDown(); }
+        }catch(e){}
+      }
+    }
+  }catch(e){
+    if(!answer) answer = "(stopped)";
+  }
+  messages.push({role:"assistant", content:answer});
+  aborter = null;
+  $("sendBtn").classList.remove("hidden"); $("stopBtn").classList.add("hidden");
+}
+
+$("sendBtn").onclick = send;
+$("stopBtn").onclick = () => { if(aborter) aborter.abort(); };
+$("input").addEventListener("keydown", e=>{
+  if(e.key === "Enter" && !e.shiftKey){ e.preventDefault(); send(); }
+});
+$("input").addEventListener("input", e=>{
+  e.target.style.height = "auto";
+  e.target.style.height = Math.min(e.target.scrollHeight, 180) + "px";
+});
+$("newChatBtn").onclick = () => { messages = []; $("messages").innerHTML = ""; };
+
+// ---------------- settings ----------------
+$("settingsBtn").onclick = () => {
+  const sel = $("selModel"); sel.innerHTML = "";
+  (state.models||[]).forEach(m=>{
+    const o = document.createElement("option");
+    o.value = m.id; o.textContent = m.label; sel.appendChild(o);
+  });
+  sel.value = state.modelId || "7b";
+  $("selCtx").value = String(state.ctx || 32768);
+  $("modal").classList.add("open");
+};
+$("cancelBtn").onclick = () => $("modal").classList.remove("open");
+$("applyBtn").onclick = async () => {
+  await fetch("/api/settings", {method:"POST", headers:{"Content-Type":"application/json"},
+    body: JSON.stringify({model: $("selModel").value, ctx: parseInt($("selCtx").value,10)})});
+  $("modal").classList.remove("open");
+  messages = []; $("messages").innerHTML = "";
+  kicked = false;
+};
+$("quitBtn").onclick = async () => {
+  await fetch("/api/quit", {method:"POST"});
+  document.body.innerHTML = '<div style="padding:40px;text-align:center;color:#9aa3b2">Private Muse has shut down. You can close this window.</div>';
+};
+
+poll();
+</script>
+</body>
+</html>
